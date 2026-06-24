@@ -1,0 +1,3 @@
+# Desktop dev/test only — provides a drop-in `unicornhathd` simulator.
+# On the Pi the real unicornhathd library is already installed; this is not needed there.
+unicorn-hat-sim

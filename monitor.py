@@ -18,7 +18,7 @@ import urllib.request
 BRIGHTNESS = 0.5          # ponytail: tune on the physical matrix
 ROTATION = 0              # ponytail: depends on how the HAT is mounted
 CYCLE_SECS = 10           # ring <-> equalizer
-FETCH_SECS = 5
+FETCH_SECS = 30           # usage API poll; faster trips its 429 rate limit (display still ~30fps)
 FPS = 30
 EASE = 0.07               # display value easing toward target (from design)
 
@@ -225,14 +225,26 @@ class State:
 
 
 def _fetch_loop(state):
+    delay = FETCH_SECS
     while True:
         try:
             state.target = fetch_util()
             state.fails = 0
-        except Exception as e:  # offline / auth dead -> keep last, count failures
+            delay = FETCH_SECS
+        except urllib.error.HTTPError as e:
+            if e.code == 429:  # throttled, not broken — keep last value, back off
+                ra = e.headers.get("Retry-After")
+                delay = int(ra) if (ra and ra.isdigit()) else min(delay * 2, 300)
+                print(f"rate limited (429); backing off to {delay}s")
+            else:  # auth dead etc. -> count toward the red-X error state
+                state.fails += 1
+                delay = FETCH_SECS
+                print("fetch failed:", e)
+        except Exception as e:  # offline -> keep last, count failures
             state.fails += 1
+            delay = FETCH_SECS
             print("fetch failed:", e)
-        time.sleep(FETCH_SECS)
+        time.sleep(delay)
 
 
 def run(mock=False):

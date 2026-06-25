@@ -18,7 +18,8 @@ import urllib.request
 BRIGHTNESS = 0.5          # ponytail: tune on the physical matrix
 ROTATION = 0              # ponytail: depends on how the HAT is mounted
 VIZ = "ring"              # which visualization: "ring" or "equalizer"
-FETCH_SECS = 30           # usage API poll; faster trips its 429 rate limit (display still ~30fps)
+FETCH_SECS = 180          # usage API poll; it's rate-limited for occasional checks, not polling.
+                          # 5h % moves slowly, display eases anyway. ponytail: raise if still 429.
 FPS = 30
 EASE = 0.07               # display value easing toward target (from design)
 
@@ -35,6 +36,7 @@ def _home():
 
 
 CREDS = os.path.join(_home(), ".claude", ".credentials.json")
+CACHE = os.path.join(_home(), ".claude", "usage_monitor_cache.json")
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"  # ponytail: verify at impl
 CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"          # Claude Code OAuth client
@@ -218,6 +220,21 @@ def fetch_util():
     return float(data["five_hour"]["utilization"])
 
 
+# ---------------- last-value cache (survives restarts + 429 cooldowns) ----------------
+def load_cache():
+    try:
+        return float(json.load(open(CACHE))["util"])
+    except Exception:
+        return None
+
+
+def save_cache(util):
+    try:
+        json.dump({"util": util, "ts": int(time.time())}, open(CACHE, "w"))
+    except Exception as e:
+        print("cache write failed:", e)
+
+
 # ---------------- main loop ----------------
 class State:
     target = 0.0
@@ -231,6 +248,7 @@ def _fetch_loop(state):
             state.target = fetch_util()
             state.fails = 0
             delay = FETCH_SECS
+            save_cache(state.target)
         except urllib.error.HTTPError as e:
             if e.code == 429:  # throttled, not broken — keep last value, back off
                 ra = e.headers.get("Retry-After")
@@ -259,6 +277,10 @@ def run(mock=False):
 
     render = {"ring": ring, "equalizer": equalizer}[VIZ]
     state = State()
+    cached = load_cache()
+    if cached is not None and not mock:
+        state.target = cached
+        print(f"loaded cached usage: {cached}%")
     if not mock:
         threading.Thread(target=_fetch_loop, args=(state,), daemon=True).start()
 

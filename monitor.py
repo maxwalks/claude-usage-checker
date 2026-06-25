@@ -27,6 +27,7 @@ CREDS = os.path.expanduser("~/.claude/.credentials.json")
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"  # ponytail: verify at impl
 CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"          # Claude Code OAuth client
+USER_AGENT = "claude-cli/2.0.0 (external, cli)"             # some edges 403 a bare urllib UA
 
 
 # ---------------- color + buffer helpers (ported from design draw()) ----------------
@@ -166,8 +167,8 @@ def _refresh(oauth):
         "refresh_token": oauth["refreshToken"],
         "client_id": CLIENT_ID,
     }).encode()
-    req = urllib.request.Request(TOKEN_URL, data=body,
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(TOKEN_URL, data=body, headers={
+        "Content-Type": "application/json", "User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=15) as resp:
         tok = json.load(resp)
     updated = {
@@ -185,6 +186,7 @@ def _get_usage(token):
         "Authorization": f"Bearer {token}",
         "anthropic-beta": "oauth-2025-04-20",
         "anthropic-version": "2023-06-01",
+        "User-Agent": USER_AGENT,
     })
     with urllib.request.urlopen(req, timeout=15) as resp:
         return json.load(resp)
@@ -198,7 +200,7 @@ def fetch_util():
     try:
         data = _get_usage(oauth["accessToken"])
     except urllib.error.HTTPError as e:
-        if e.code != 401:
+        if e.code not in (401, 403):
             raise
         oauth = _refresh(oauth)
         data = _get_usage(oauth["accessToken"])
@@ -225,7 +227,9 @@ def _fetch_loop(state):
 def run(mock=False):
     try:
         import unicornhathd as u
-    except ImportError:
+        print("backend: real unicornhathd (physical HAT)")
+    except ImportError as e:
+        print(f"backend: SIMULATOR (real unicornhathd not importable: {e})")
         from unicorn_hat_sim import unicornhathd as u
     u.rotation(ROTATION)
     u.brightness(BRIGHTNESS)

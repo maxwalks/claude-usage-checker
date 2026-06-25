@@ -23,7 +23,18 @@ FPS = 30
 EASE = 0.07               # display value easing toward target (from design)
 
 N = 16
-CREDS = os.path.expanduser("~/.claude/.credentials.json")
+
+
+def _home():
+    # under sudo (needed for SPI on some setups) ~ is /root, but creds live in the
+    # invoking user's home. ponytail: honor SUDO_USER so `sudo python3 monitor.py` works.
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user and hasattr(os, "geteuid") and os.geteuid() == 0:
+        return os.path.expanduser("~" + sudo_user)
+    return os.path.expanduser("~")
+
+
+CREDS = os.path.join(_home(), ".claude", ".credentials.json")
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"  # ponytail: verify at impl
 CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"          # Claude Code OAuth client

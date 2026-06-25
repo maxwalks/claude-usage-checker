@@ -17,7 +17,7 @@ import urllib.request
 # --- calibration knobs (hardware never matches paper) ---
 BRIGHTNESS = 0.5          # ponytail: tune on the physical matrix
 ROTATION = 0              # ponytail: depends on how the HAT is mounted
-CYCLE_SECS = 10           # ring <-> equalizer
+VIZ = "ring"              # which visualization: "ring" or "equalizer"
 FETCH_SECS = 30           # usage API poll; faster trips its 429 rate limit (display still ~30fps)
 FPS = 30
 EASE = 0.07               # display value easing toward target (from design)
@@ -257,6 +257,7 @@ def run(mock=False):
     u.rotation(ROTATION)
     u.brightness(BRIGHTNESS)
 
+    render = {"ring": ring, "equalizer": equalizer}[VIZ]
     state = State()
     if not mock:
         threading.Thread(target=_fetch_loop, args=(state,), daemon=True).start()
@@ -272,10 +273,8 @@ def run(mock=False):
             buf = new_buf()
             if state.fails >= 2:
                 error_x(buf, t)
-            elif int(t // CYCLE_SECS) % 2 == 0:
-                ring(buf, disp, t)
             else:
-                equalizer(buf, disp, t)
+                render(buf, disp, t)
             for y in range(N):
                 for x in range(N):
                     r, g, b = buf[y][x]

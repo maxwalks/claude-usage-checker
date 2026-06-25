@@ -1,8 +1,8 @@
 # Claude Usage Monitor — Unicorn HAT HD
 
 Glanceable Claude usage on a Raspberry Pi 5 + Pimoroni Unicorn HAT HD (16×16).
-Shows your **5-hour session limit consumed** as a Ring gauge and an Equalizer,
-auto-cycling every 10s. Renderers ported from the claude.ai/design project.
+Shows your **5-hour session limit consumed** as a Ring gauge (switch to the
+Equalizer via the `VIZ` constant). Renderers ported from the claude.ai/design project.
 
 ## Data source
 Reads Claude Code's own usage endpoint (`/api/oauth/usage`) using the account
@@ -46,6 +46,6 @@ sudo systemctl enable --now claude-usage
 ```
 
 ## Tuning
-Constants at the top of `monitor.py`: `BRIGHTNESS`, `ROTATION` (set to match how the
-HAT is mounted), `CYCLE_SECS`, `FETCH_SECS`. On fetch failure it holds the last value;
+Constants at the top of `monitor.py`: `VIZ` (`"ring"` or `"equalizer"`), `BRIGHTNESS`,
+`ROTATION` (set to match how the HAT is mounted), `FETCH_SECS`. On fetch failure it holds the last value;
 after 2+ consecutive failures it shows a red **X**.
